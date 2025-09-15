@@ -48,6 +48,7 @@ import UIKit
     @objc public var heightFactor: CGFloat = 1.0
     @objc public var slideMode: Int = 0
     
+    @objc public var sizeReference: Int = WidgetSizeReference.longSide.rawValue
     @objc public var deNormalizedWidthFactor: CGFloat = 1.0
     @objc public var deNormalizedHeightFactor: CGFloat = 1.0
     
@@ -139,6 +140,7 @@ import UIKit
     private var firstTouchMoved: Bool = false
     private var mousePointerMoved: Bool
     private var twoTouchesDetected: Bool
+    private var allSpawnedTouchesCount: Int = 0
     
     // trackball
     private var trackballVelocity: CGPoint = .zero
@@ -413,35 +415,57 @@ import UIKit
         }
     }
     
+    // 仅在加载控件时调用
     private func denormalizeSize(sizeFactor:CGFloat) -> CGFloat {
-        let screenWidthInPoints = UIScreen.main.bounds.width
+        let longSideLen = max(UIScreen.main.bounds.width, UIScreen.main.bounds.height)
+        let shortSideLen = min(UIScreen.main.bounds.width, UIScreen.main.bounds.height)
+        
+        var referenceLen = UIScreen.main.bounds.width
+        if(self.sizeReference == WidgetSizeReference.longSide.rawValue) {referenceLen = longSideLen}
+        if(self.sizeReference == WidgetSizeReference.shortSide.rawValue) {referenceLen = shortSideLen}
+        
         // return CGFloat(Int(sizeFactor/10000*screenWidthInPoints/2)*2);
-        return nearestEven(sizeFactor/10000*screenWidthInPoints);
+        // print("referenceLen \(referenceLen), \(CACurrentMediaTime())")
+        return nearestEven(sizeFactor/10000*referenceLen);
     }
-    
+
     private func changeAndActivateContraints(){
         let isNormalizedSizeFactor = self.widthFactor > 6;
         let isNormalizedHeightFactor = self.heightFactor > 6;
+        
+        let longSideLen = max(UIScreen.main.bounds.width, UIScreen.main.bounds.height)
+        let shortSideLen = min(UIScreen.main.bounds.width, UIScreen.main.bounds.height)
+        
+        let baselineDiameter:CGFloat = self.sizeReference == WidgetSizeReference.longSide.rawValue ? 60 : 60*shortSideLen/longSideLen
+        print("baselineDiameter \(baselineDiameter), \(CACurrentMediaTime())")
+        
+        let baselineWidth:CGFloat = self.sizeReference == WidgetSizeReference.longSide.rawValue ? 70 : 70*shortSideLen/longSideLen
+        let baselineHeight:CGFloat = self.sizeReference == WidgetSizeReference.longSide.rawValue ? 65 : 65*shortSideLen/longSideLen
+        let baselineWidthLargeSquare:CGFloat = self.sizeReference == WidgetSizeReference.longSide.rawValue ? 170 : 170*shortSideLen/longSideLen
+        let baselineHeightLargeSquare:CGFloat = self.sizeReference == WidgetSizeReference.longSide.rawValue ? 150 : 150*shortSideLen/longSideLen
 
         if self.shape == "round"{ // we'll make custom osc buttons round & smaller
             NSLayoutConstraint.activate([
-                self.widthAnchor.constraint(equalToConstant: isNormalizedSizeFactor ? denormalizeSize(sizeFactor:self.widthFactor) : CGFloat(Int(60 * self.widthFactor / 2) * 2)),
-                self.heightAnchor.constraint(equalToConstant: isNormalizedSizeFactor ? denormalizeSize(sizeFactor:self.widthFactor) : CGFloat(Int(60 * self.widthFactor / 2) * 2)),])
-            self.deNormalizedWidthFactor = isNormalizedSizeFactor ? denormalizeSize(sizeFactor:self.widthFactor)/60 : self.widthFactor;
-            self.deNormalizedHeightFactor = isNormalizedSizeFactor ? denormalizeSize(sizeFactor:self.widthFactor)/60 : self.widthFactor;
+                self.widthAnchor.constraint(equalToConstant: isNormalizedSizeFactor ? denormalizeSize(sizeFactor:self.widthFactor) : CGFloat(Int(baselineDiameter * self.widthFactor / 2) * 2)),
+                self.heightAnchor.constraint(equalToConstant: isNormalizedSizeFactor ? denormalizeSize(sizeFactor:self.widthFactor) : CGFloat(Int(baselineDiameter * self.widthFactor / 2) * 2)),])
+            // 实时调整大小时isNormalized 为 false。加载数据时 isNormalized 为 true
+            // baselineDiameter 仅在 实时调整大小时生效，从存储恢复时总是会恢复denormalizeSize()尺寸
+            self.deNormalizedWidthFactor = isNormalizedSizeFactor ? denormalizeSize(sizeFactor:self.widthFactor)/baselineDiameter : self.widthFactor;
+            self.deNormalizedHeightFactor = isNormalizedSizeFactor ? denormalizeSize(sizeFactor:self.widthFactor)/baselineDiameter : self.widthFactor;
+            //此处的 deNormalized 用于slider显示值
         }
         if self.shape == "square" {
             NSLayoutConstraint.activate([
-                self.widthAnchor.constraint(equalToConstant: isNormalizedSizeFactor ? denormalizeSize(sizeFactor:self.widthFactor) :  CGFloat(Int(70 * self.widthFactor / 2) * 2)),
-                self.heightAnchor.constraint(equalToConstant: isNormalizedHeightFactor ? denormalizeSize(sizeFactor:self.heightFactor) :  CGFloat(Int(65 * self.heightFactor / 2) * 2)),])
-            self.deNormalizedWidthFactor = isNormalizedSizeFactor ? denormalizeSize(sizeFactor:self.widthFactor)/70 : self.widthFactor;
-            self.deNormalizedHeightFactor = isNormalizedHeightFactor ? denormalizeSize(sizeFactor:self.heightFactor)/65 : self.heightFactor;
+                self.widthAnchor.constraint(equalToConstant: isNormalizedSizeFactor ? denormalizeSize(sizeFactor:self.widthFactor) :  CGFloat(Int(baselineWidth * self.widthFactor / 2) * 2)),
+                self.heightAnchor.constraint(equalToConstant: isNormalizedHeightFactor ? denormalizeSize(sizeFactor:self.heightFactor) :  CGFloat(Int(baselineHeight * self.heightFactor / 2) * 2)),])
+            self.deNormalizedWidthFactor = isNormalizedSizeFactor ? denormalizeSize(sizeFactor:self.widthFactor)/baselineWidth : self.widthFactor;
+            self.deNormalizedHeightFactor = isNormalizedHeightFactor ? denormalizeSize(sizeFactor:self.heightFactor)/baselineHeight : self.heightFactor;
         }
         if self.shape == "largeSquare" { // override all shape strings
             NSLayoutConstraint.activate([
-                self.widthAnchor.constraint(equalToConstant:isNormalizedSizeFactor ? denormalizeSize(sizeFactor:self.widthFactor) :  CGFloat(Int(170 * self.widthFactor / 2) * 2)),
-                self.heightAnchor.constraint(equalToConstant:isNormalizedHeightFactor ? denormalizeSize(sizeFactor:self.heightFactor) :  CGFloat(Int(150 * self.heightFactor / 2) * 2)),])
-            self.deNormalizedWidthFactor = isNormalizedSizeFactor ? denormalizeSize(sizeFactor:self.widthFactor)/170 : self.widthFactor;
+                self.widthAnchor.constraint(equalToConstant:isNormalizedSizeFactor ? denormalizeSize(sizeFactor:self.widthFactor) :  CGFloat(Int(baselineWidthLargeSquare * self.widthFactor / 2) * 2)),
+                self.heightAnchor.constraint(equalToConstant:isNormalizedHeightFactor ? denormalizeSize(sizeFactor:self.heightFactor) :  CGFloat(Int(baselineHeightLargeSquare * self.heightFactor / 2) * 2)),])
+            self.deNormalizedWidthFactor = isNormalizedSizeFactor ? denormalizeSize(sizeFactor:self.widthFactor)/baselineWidthLargeSquare : self.widthFactor;
             self.deNormalizedHeightFactor = isNormalizedHeightFactor ? denormalizeSize(sizeFactor:self.heightFactor)/150 : self.heightFactor;
         }
         
@@ -520,7 +544,7 @@ import UIKit
         
         addSubview(label)
         
-        self.changeAndActivateContraints()
+        if(OnScreenWidgetView.editMode) {self.changeAndActivateContraints()}
         
         center = storedCenter //anchor the center while resizing self
         
@@ -1213,7 +1237,7 @@ import UIKit
             self.latestTouchLocation = touchBeganLocation
         }
                 
-        let allSpawnedTouchesCount = self.getAllSpawnedTouchesCount(with: event) // this will counts all valid touches within the self widgetView, and excludes touches in other widgetViews
+        allSpawnedTouchesCount = self.getAllSpawnedTouchesCount(with: event) // this will counts all valid touches within the self widgetView, and excludes touches in other widgetViews
         if allSpawnedTouchesCount == 2 {
             self.twoTouchesDetected = true
         }
@@ -1366,7 +1390,6 @@ import UIKit
         }
     }
 
-    
     private func handleFingerUpAfterSliding(touches: Set<UITouch>) {
         for touch in touches {
             for subview in self.superview?.subviews ?? [] {
@@ -1478,10 +1501,8 @@ import UIKit
             switch self.touchPadString{
             case "MOUSEPAD":
                 DispatchQueue.global(qos: .userInteractive).async {
-                    if self.getAllSpawnedTouchesCount(with: event) == 1 {
-                        self.updateTouchLocation(touch: touches.first!)
-                        LiSendMouseMoveEvent(Int16(truncatingIfNeeded: Int(self.deltaX * 1.7 * self.sensitivityFactorX)), Int16(truncatingIfNeeded: Int(self.deltaY * 1.7 * self.sensitivityFactorY)))
-                    }
+                    self.updateTouchLocation(touch: touches.first!)
+                    LiSendMouseMoveEvent(Int16(truncatingIfNeeded: Int(self.deltaX * 1.7 * self.sensitivityFactorX)), Int16(truncatingIfNeeded: Int(self.deltaY * 1.7 * self.sensitivityFactorY)))
                 }
                 break
             case "TRACKBALL":
@@ -1544,11 +1565,11 @@ import UIKit
 
         if self.touchPadString != "MOUSEPAD" {quickDoubleTapDetected = false} //do not reset this flag here in mousePad mode
         
-        let allCapturedTouchesCount = event?.allTouches?.filter({ $0.view == self }).count // this will counts all valid touches within the self widgetView, and excludes touches in other widgetViews
+        self.allSpawnedTouchesCount = self.getAllSpawnedTouchesCount(with: event) // this will counts all valid touches within the self widgetView, and excludes touches in other widgetViews
         
         
         // deal with pure MOUSPAD first
-        if !OnScreenWidgetView.editMode && self.widgetType == WidgetTypeEnum.touchPad && self.touchPadString == "MOUSEPAD" && allCapturedTouchesCount == 1 && !twoTouchesDetected {
+        if !OnScreenWidgetView.editMode && self.widgetType == WidgetTypeEnum.touchPad && self.touchPadString == "MOUSEPAD" && allSpawnedTouchesCount == 1 && !twoTouchesDetected {
             
                 switch mouseButtonAction{
                 case .leftButtonDown:
@@ -1572,7 +1593,7 @@ import UIKit
                 }
         }
         
-        if !OnScreenWidgetView.editMode && self.widgetType == WidgetTypeEnum.touchPad && self.touchPadString == "TRACKBALL" && allCapturedTouchesCount == 1 && !twoTouchesDetected {
+        if !OnScreenWidgetView.editMode && self.widgetType == WidgetTypeEnum.touchPad && self.touchPadString == "TRACKBALL" && allSpawnedTouchesCount == 1 && !twoTouchesDetected {
             if(mousePointerMoved){
                 self.startTrackballMomentum()
                 mousePointerMoved = false //reset flag
@@ -1582,7 +1603,7 @@ import UIKit
             }
         }
         
-        if !OnScreenWidgetView.editMode && self.widgetType == WidgetTypeEnum.touchPad && self.touchPadString == "MOUSEPAD" && twoTouchesDetected && touches.count == allCapturedTouchesCount { // need to enable multi-touch first
+        if !OnScreenWidgetView.editMode && self.widgetType == WidgetTypeEnum.touchPad && self.touchPadString == "MOUSEPAD" && twoTouchesDetected && touches.count == allSpawnedTouchesCount { // need to enable multi-touch first
             // touches.count == allCapturedTouchesCount means allfingers are lifting
             if(self.mouseButtonAction == MouseButtonAction.hovering) {self.sendMouseRightButtonClickEvent()}
             twoTouchesDetected = false

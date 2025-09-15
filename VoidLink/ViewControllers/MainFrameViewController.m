@@ -822,6 +822,7 @@ static NSMutableSet* hostList;
     _streamConfig.playAudioOnPC = streamSettings.playAudioOnPC;
     _streamConfig.redirectMic = streamSettings.redirectMic;
     _streamConfig.swapABXYButtons = streamSettings.swapABXYButtons;
+    _streamConfig.buttonVisualFeedback = streamSettings.buttonVisualFeedback;
     _streamConfig.asyncNativeTouchPriority = streamSettings.asyncNativeTouchPriority; // new streamConfig segment
     _streamConfig.gyroMode = [streamSettings.gyroMode intValue];
     _streamConfig.emulatedControllerType = streamSettings.emulatedControllerType.intValue;
@@ -1539,7 +1540,7 @@ static NSMutableSet* hostList;
     [self setupNavBar];
     
     // Set the gesture
-    if(![self isIPhonePortrait]) [self.view addGestureRecognizer:self.revealViewController.panGestureRecognizer]; // to prevent buggy settings view in iphone portrait mode;
+    [self.view addGestureRecognizer:self.revealViewController.panGestureRecognizer];
     
     // Get callbacks associated with the viewController
     [self.revealViewController setDelegate:self];
