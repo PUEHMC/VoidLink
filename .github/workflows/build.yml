@@ -44,29 +44,30 @@ jobs:
           name: VoidLink.ipa
           path: ./build
 
-      - name: Get release body
+      - name: Generate release body
         id: get_release_body
         run: |
-          echo "body=$(git log --pretty=format:'- %s' upstream/Integration...master)" >> $GITHUB_OUTPUT
+          body=$(echo '${{ toJSON(github.event.commits) }}' | jq -r '.[] | .message | split("\n")[0] | "- \(.+)"')
+          echo "body<<EOF" >> $GITHUB_ENV
+          echo "$body" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
 
-      - name: Create Release
-        id: create_release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: autobuild-${{ github.run_id }}
-          name: VoidLink AutoBuild - ${{ env.TODAY }}
-          body: |
-            ${{ steps.get_release_body.outputs.body }}
-          files: build/VoidLink.ipa
-          draft: false
-          prerelease: false
-        env:
-          TODAY: $(date +'%Y%m%d')
-
-      - name: Delete old release
+      - name: Delete previous autobuild release
         uses: dev-drprasad/delete-tag-and-release@v0.2.1
         with:
+          tag_name: autobuild
           delete_release: true
-          tag_name: ${{ steps.create_release.outputs.tag_name }}
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: autobuild
+          name: VoidLink AutoBuild - ${{ env.TODAY }}
+          body: ${{ env.body }}
+          files: build/VoidLink.ipa
+        env:
+          TODAY: $(date +'%Y%m%d')
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
