@@ -1,7 +1,9 @@
 name: Build VoidLink IPA
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - master
 
 jobs:
   build:
@@ -27,3 +29,41 @@ jobs:
         with:
           name: VoidLink.ipa
           path: build/VoidLink.ipa
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download IPA
+        uses: actions/download-artifact@v4
+        with:
+          name: VoidLink.ipa
+          path: ./build
+
+      - name: Get release body
+        id: get_release_body
+        run: |
+          echo "body=$(git log --pretty=format:'- %s' upstream/Integration...master)" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: autobuild-${{ github.run_id }}
+          name: VoidLink AutoBuild - ${{ env.TODAY }}
+          body: |
+            ${{ steps.get_release_body.outputs.body }}
+          files: build/VoidLink.ipa
+          draft: false
+          prerelease: false
+        env:
+          TODAY: $(date +'%Y%m%d')
+
+      - name: Delete old release
+        uses: dev-drprasad/delete-tag-and-release@v0.2.1
+        with:
+          delete_release: true
+          tag_name: ${{ steps.create_release.outputs.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
