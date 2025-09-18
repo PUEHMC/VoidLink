@@ -47,7 +47,7 @@ jobs:
       - name: Generate release body
         id: get_release_body
         run: |
-          body=$(echo '${{ toJSON(github.event.commits) }}' | jq -r '.[] | .message | split("\n")[0] | "- \(.+)"')
+          body=$(echo '${{ toJSON(github.event.commits) }}' | jq -r '.[] | .message | split("\n")[0] | "- " + .')
           echo "body<<EOF" >> $GITHUB_ENV
           echo "$body" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
