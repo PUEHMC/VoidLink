@@ -61,13 +61,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
 
+      - name: Set current date
+        id: date
+        run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: autobuild
-          name: VoidLink AutoBuild - ${{ env.TODAY }}
+          name: VoidLink AutoBuild - ${{ steps.date.outputs.date }}
           body: ${{ env.body }}
           files: build/VoidLink.ipa
         env:
-          TODAY: $(date +'%Y%m%d')
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
