@@ -4,73 +4,51 @@ permissions:
   contents: write
 
 on:
-  push:
-    branches:
-      - Integration
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
-  build:
-    name: Build VoidLink IPA
+  build-and-deploy:
+    name: Build and Release VoidLink IPA
     runs-on: macos-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      # 克隆上游仓库（保持与上游同步的关键修改）
+      - name: Clone Upstream Repository
+        run: git clone --branch ReadmeBranch https://github.com/The-Fried-Fish/VoidLink-previously-moonlight-zwm.git ./external-voidlink
 
       - name: Checkout submodules
-        run: "git submodule update --init --recursive"
+        working-directory: ./external-voidlink
+        run: git submodule update --init --recursive
 
-      - name: Build VoidLink
+      - name: Set Build Tag Name
+        id: set_tag
         run: |
-          xcodebuild -verbose -scheme VoidLink -sdk iphoneos -configuration Debug archive -archivePath $PWD/build/VoidLink.xcarchive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO"
-          mkdir -p ./build/IPA && mkdir -p ./build/IPA/Payload
+          DATE=$(date +'%y%m%d-%H%M')
+          echo "TAG_NAME=build-$DATE" >> $GITHUB_ENV
+
+      - name: Build VoidLink IPA
+        working-directory: ./external-voidlink
+        run: |
+          xcodebuild -scheme VoidLink -sdk iphoneos -configuration Debug archive -archivePath $PWD/build/VoidLink.xcarchive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED="NO" CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO"
+          mkdir -p ./build/IPA/Payload
           cp -r ./build/VoidLink.xcarchive/Products/Applications/VoidLink.app ./build/IPA/Payload/VoidLink.app
           cd ./build/IPA && zip -r ../../build/VoidLink.ipa ./Payload/* && cd ../..
 
-      - name: Upload VoidLink IPA to Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: VoidLink.ipa
-          path: build/VoidLink.ipa
-
-  release:
-    name: Create Release
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download IPA
-        uses: actions/download-artifact@v4
-        with:
-          name: VoidLink.ipa
-          path: ./build
-
-      - name: Generate release body
-        id: get_release_body
+      - name: Verify Artifacts
+        working-directory: ./external-voidlink
         run: |
-          body=$(echo '${{ toJSON(github.event.commits) }}' | jq -r '.[] | .message | split("\n")[0] | "- " + .')
-          echo "body<<EOF" >> $GITHUB_ENV
-          echo "$body" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          if [ ! -f ./build/VoidLink.ipa ]; then
+            echo "::error::VoidLink.ipa not found!"
+            exit 1
+          fi
+          echo "IPA built successfully"
 
-      - name: Delete previous autobuild release
-        uses: dev-drprasad/delete-tag-and-release@v0.2.1
+      - name: Auto Release
+        uses: marvinpinto/action-automatic-releases@latest
         with:
-          tag_name: autobuild
-          delete_release: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
-
-      - name: Set current date
-        id: date
-        run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: autobuild
-          name: VoidLink AutoBuild - ${{ steps.date.outputs.date }}
-          body: ${{ env.body }}
-          files: build/VoidLink.ipa
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          automatic_release_tag: ${{ env.TAG_NAME }}
+          prerelease: false
+          files: ./external-voidlink/build/VoidLink.ipa
