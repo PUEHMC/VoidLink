@@ -1,4 +1,4 @@
-# VoidLink 已上架App Store.
+# VoidLink 已上架App Store. 请支持正版 支持作者 本构建仅支持研究学习
 # VoidLink is available on App Store
 ### [https://apps.apple.com/app/voidlink/id6747717070](https://apps.apple.com/cn/app/voidlink/id6747717070)
 
