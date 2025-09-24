@@ -16,7 +16,7 @@ jobs:
     steps:
       # 克隆上游仓库（保持与上游同步的关键修改）
       - name: Clone Upstream Repository
-        run: git clone --branch ReadmeBranch https://github.com/The-Fried-Fish/VoidLink-previously-moonlight-zwm.git ./external-voidlink
+        run: git clone --branch Integration https://github.com/The-Fried-Fish/VoidLink-previously-moonlight-zwm.git ./external-voidlink
 
       - name: Checkout submodules
         working-directory: ./external-voidlink
